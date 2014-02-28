@@ -1,7 +1,40 @@
+#!/usr/bin/python
+
+import os
+import shelve
+from tempfile import NamedTemporaryFile
+
 class KeyColumnValueStore(object):
 
-	def __init__(self):
+	def __init__(self, path=None):
 	   self._kcvstore = {}
+	   self._key = 'data'
+	   self._persist_to_disk(path)
+
+	def _persist_to_disk(self, path):
+	   if path is None:
+		# built in controled execution
+		with NamedTemporaryFile(delete=False) as persist:
+			self.path = persist.name + '.db'
+	   else:
+		self.path = os.path.abspath(path)
+	   if os.path.isfile(self.path) and os.stat(self.path).st_size:
+            	self.load()
+           else:
+            	self.persist()  
+
+
+	def load(self):
+            """Reads the existing key/column/value structure from disk."""
+            s = shelve.open(self.path)
+            self._kcvstore = s[self._key]
+	    s.close()
+	
+	def persist(self):
+	    s = shelve.open(self.path)
+	    s[self._key] = self._kcvstore
+	    s.close()
+
 	
 	def set(self, key, col, val):
            """ sets the value at the given key/column """
@@ -9,7 +42,8 @@ class KeyColumnValueStore(object):
 	   	self._kcvstore[key][col] = val
 	   else:
 		self._kcvstore[key] = {col:val}
-	   print 'kcvstore = ', self._kcvstore[key][col]
+	   #print 'kcvstore = ', self._kcvstore[key][col]
+	   self.persist()
 
         def get(self, key, col = None):
             """ return the value at the specified key/column """
@@ -35,10 +69,12 @@ class KeyColumnValueStore(object):
         def delete(self, key, col):
             """ removes a column/value from the given key """
 	    del self._kcvstore[key][col]
+	    self.persist()
 
         def delete_key(self, key):
             """ removes all data associated with the given key """
 	    del self._kcvstore[key]
+	    self.persist()
 	
 	def get_slice(self, key, start = None, stop = None):
             """
